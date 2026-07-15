@@ -6,15 +6,19 @@
 
 ## 安装
 
-直接让 Agent 安装 Ultra-Goal skill：
+直接让 Agent 安装 Ultra-Goal 的两个skill：
 
-> Install this skill: <https://github.com/Azure99/ultra-goal/tree/main/skills/ultra-goal>
+> Install `prepare-ultra-goal` and `ultra-goal` from <https://github.com/Azure99/ultra-goal>.
 
 也可以通过 `skills` CLI 安装：
 
 ```bash
-npx skills add Azure99/ultra-goal
+npx skills add Azure99/ultra-goal \
+  --skill prepare-ultra-goal \
+  --skill ultra-goal
 ```
+
+当目标存在歧义、较为复杂或风险较高时，应先调用 `prepare-ultra-goal`，通过只读探索产出经确认、可验收的目标，再交由 `ultra-goal` 执行。当目标的预期结果、边界、约束和验收标准已清晰且风险较低时，可直接调用 `ultra-goal`。
 
 ## 设计背景
 
@@ -22,7 +26,7 @@ npx skills add Azure99/ultra-goal
 
 然而，在实际执行 SDD 流程时，仍然存在三个难以回避的痛点：
 
-1. **决策成本仍由使用者承担。**
+1. **实现决策仍需使用者裁定。**
    在编写 spec / plan 的阶段，使用者依然需要在多个候选方案之间做出选择，例如数据结构、API 风格、迁移路径等。每一个关键分叉点，最终仍需要人工裁定。
 
 2. **SDD 天然不适合超长程任务。**
@@ -51,7 +55,7 @@ Ultra-Goal 将工作组织为连续推进的阶段循环。每个阶段都会独
 
 这一设计与传统 SDD 工具存在几个本质区别：
 
-* **决策不再依赖人工介入。**
+* **执行决策不再依赖人工介入。**
   所有 plan 中的 trade-off，以及 review 阶段产生的争议，均由多个子 Agent 评估、投票，并由主控 Agent 仲裁，不再交还给使用者裁定。
 
 * **计划是持续演化的。**
@@ -62,7 +66,7 @@ Ultra-Goal 将工作组织为连续推进的阶段循环。每个阶段都会独
 
 ## 适用场景
 
-**Ultra-Goal 不适合小型任务。**
+**小型任务不适合运行 `ultra-goal`。**
 
 启动一个 Ultra-Goal 流程，意味着会投入大量 token 用于规划、评审、投票和仲裁。对于“添加一个按钮”或“修复一个 typo”这类局部改动，这种开销通常并不划算。
 
@@ -88,7 +92,7 @@ Ultra-Goal 适合的场景包括：
 
 > “把这个 Express 项目迁移到 Fastify，保持现有 API 行为不变，所有现有的集成测试和 E2E 测试必须继续通过。”
 
-过于模糊的目标不适合：
+过于模糊的目标应先澄清：
 
 > “改一下项目。”
 

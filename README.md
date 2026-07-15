@@ -6,15 +6,19 @@
 
 ## Installation
 
-Ask the Agent to install the Ultra-Goal Skill directly:
+Ask the Agent to install both Ultra-Goal skills directly:
 
-> Install this skill: <https://github.com/Azure99/ultra-goal/tree/main/skills/ultra-goal>
+> Install `prepare-ultra-goal` and `ultra-goal` from <https://github.com/Azure99/ultra-goal>.
 
-You can also install it through the `skills` CLI:
+You can also install them through the `skills` CLI:
 
 ```bash
-npx skills add Azure99/ultra-goal
+npx skills add Azure99/ultra-goal \
+  --skill prepare-ultra-goal \
+  --skill ultra-goal
 ```
+
+When a goal is ambiguous, complex, or high-risk, invoke `prepare-ultra-goal` first to produce a confirmed, acceptance-testable goal through read-only exploration, then hand it to `ultra-goal` for execution. When the goal's intended outcomes, boundaries, constraints, and acceptance criteria are already clear and the risk is low, invoke `ultra-goal` directly.
 
 ## Design Background
 
@@ -22,7 +26,7 @@ Over the past year, spec-driven workflows such as Superpowers, GSD, and OpenSpec
 
 However, when actually executing an SDD workflow, there are still three unavoidable pain points:
 
-1. **The decision-making cost is still borne by the user.**
+1. **Implementation decisions still fall back to the user.**
    During the spec / plan writing phase, the user still needs to choose among multiple candidate solutions, such as data structures, API style, migration paths, and so on. At every key fork in the road, the final decision still has to be made by a human.
 
 2. **SDD is inherently ill-suited to extremely long-horizon tasks.**
@@ -51,7 +55,7 @@ Each phase always contains four steps:
 
 This design differs from traditional SDD tools in several fundamental ways:
 
-* **Decisions no longer depend on human intervention.**
+* **Execution decisions no longer depend on human intervention.**
   All trade-offs in plans, as well as disputes raised during the review phase, are evaluated and voted on by multiple sub-Agents, then arbitrated by the orchestrator Agent. They are no longer handed back to the user for a final decision.
 
 * **The plan evolves continuously.**
@@ -62,7 +66,7 @@ This design differs from traditional SDD tools in several fundamental ways:
 
 ## Suitable Use Cases
 
-**Ultra-Goal is not suitable for small tasks.**
+**Running `ultra-goal` is not suitable for small tasks.**
 
 Starting an Ultra-Goal workflow means spending a large number of tokens on planning, review, voting, and arbitration. For local changes such as “add a button” or “fix a typo,” this overhead is usually not worthwhile.
 
@@ -88,7 +92,7 @@ An example of an appropriate goal:
 
 > “Migrate this Express project to Fastify while keeping the existing API behavior unchanged. All existing integration tests and E2E tests must continue to pass.”
 
-An overly vague goal is not suitable:
+An overly vague goal should be clarified first:
 
 > “Change the project a bit.”
 
