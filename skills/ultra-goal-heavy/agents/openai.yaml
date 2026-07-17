@@ -1,0 +1,4 @@
+interface:
+  display_name: "Ultra Goal Heavy"
+  short_description: "Run complex goals with multi-agent planning and cross-review"
+  default_prompt: "Use $ultra-goal-heavy to accomplish the following engineering goal:"

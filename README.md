@@ -2,116 +2,70 @@
 
 [English](./README.md) | [中文](./README_cn.md)
 
-> A multi-agent orchestration Skill designed for agents such as Codex and Claude Code, used to continuously advance long-running, large-scale engineering tasks in unattended mode.
+> A multi-agent orchestration skill for agents such as Codex and Claude Code, designed to keep long-running, large-scale engineering tasks moving forward unattended.
 
 ## Installation
 
-Ask the Agent to install both Ultra-Goal skills directly:
+Ask an agent to install the three skills directly:
 
-> Install `prepare-ultra-goal` and `ultra-goal` from <https://github.com/Azure99/ultra-goal>.
+> Install `prepare-ultra-goal`, `ultra-goal` and `ultra-goal-heavy` from <https://github.com/Azure99/ultra-goal>.
 
-You can also install them through the `skills` CLI:
+Alternatively, install them with the `skills` CLI:
 
 ```bash
 npx skills add Azure99/ultra-goal \
   --skill prepare-ultra-goal \
-  --skill ultra-goal
+  --skill ultra-goal \
+  --skill ultra-goal-heavy
 ```
 
-When a goal is ambiguous, complex, or high-risk, invoke `prepare-ultra-goal` first to produce a confirmed, acceptance-testable goal through read-only exploration, then hand it to `ultra-goal` for execution. When the goal's intended outcomes, boundaries, constraints, and acceptance criteria are already clear and the risk is low, invoke `ultra-goal` directly.
+## The Three Skills
 
-## Design Background
+| Skill | Role | Description |
+| --- | --- | --- |
+| `prepare-ultra-goal` | Goal preparation | Uses read-only exploration and alignment with the user to refine a raw goal into an independently verifiable `final-goal.md`, then hands it off for execution after confirmation |
+| `ultra-goal` | Standard execution | The Lead Agent plans and implements directly, delegating plan and acceptance reviews to sub-agents. This option costs less and is recommended by default |
+| `ultra-goal-heavy` | Heavy execution | The Orchestrator generally does not implement directly and focuses on coordination and arbitration: two plans are developed independently and cross-reviewed, implementation is delegated to an independent sub-agent, and multiple sub-agents conduct independent acceptance reviews followed by cross-review |
 
-Over the past year, spec-driven workflows such as Superpowers, GSD, and OpenSpec have become widely accepted. The SDD — Spec-Driven Development — idea of “first clarifying the specification and plan, then handing implementation over to an Agent” has also effectively become the de facto standard in AI-assisted development.
+How to choose:
 
-However, when actually executing an SDD workflow, there are still three unavoidable pain points:
-
-1. **Implementation decisions still fall back to the user.**
-   During the spec / plan writing phase, the user still needs to choose among multiple candidate solutions, such as data structures, API style, migration paths, and so on. At every key fork in the road, the final decision still has to be made by a human.
-
-2. **SDD is inherently ill-suited to extremely long-horizon tasks.**
-   For large tasks that need to run continuously for hours or even days, it is almost impossible to exhaustively anticipate every detail before implementation actually begins. The longer the spec, the more likely it is to drift away from real-world constraints. The earlier such deviations accumulate, the higher the cost of later implementation and correction.
-
-3. **Dynamic adjustment is expensive.**
-   Once implementation is already underway, if the original spec / plan turns out to be infeasible — for example, because the wrong library was chosen, or the complexity of a module was seriously underestimated — conventional SDD tools often struggle to smoothly roll back, correct, or re-plan. The user usually has to interrupt the session, provide background context again, or even tear everything down and start over.
+* If the goal is ambiguous, complex, or high-risk, use `prepare-ultra-goal` first to clarify and confirm it, then have it hand the goal off for execution.
+* If the expected outcomes, boundaries, constraints, and acceptance criteria are clear and the risk is low, invoke `ultra-goal` directly.
+* Choose `ultra-goal-heavy` only when there is clear evidence that multiple independent planning tracks and cross-review can materially reduce execution risk.
 
 ## Design Philosophy
 
-Ultra-Goal organizes work as a continuously advancing phase loop. Each phase independently completes planning, implementation, acceptance, and commit. After a phase ends, the system reviews the complete roadmap and, based on what has already been delivered, dynamically adds, deletes, merges, splits, or reorders subsequent phases.
+Spec-Driven Development has become the de facto standard for AI-assisted development, but three pain points remain: key implementation decisions still have to be made by the user one by one; specifications for extremely long-horizon tasks cannot cover every detail before implementation begins; and when a plan proves infeasible midway through execution, the cost of rolling back and replanning is high.
 
-Each phase always contains four steps:
+Ultra-Goal addresses these problems as follows:
 
-1. **Planning**
-   Launch 2 sub-Agents to explore independently. Each produces an initial plan. The orchestrator Agent then acts as the final decision-maker, arbitrates between them, and forms the final implementation plan.
+* **Front-load decisions, then execute unattended.** Trade-offs requiring human judgment are resolved together during the `prepare-ultra-goal` phase. Once execution begins, the workflow does not ask the user questions. Disputes arising during planning and acceptance are reviewed by sub-agents and adjudicated by the orchestrator; unresolvable blockers are recorded and work continues.
+* **Use a stage loop; let the plan evolve.** Work is organized into stages, each following the same cycle: planning → implementation → acceptance → commit. Every stage that passes acceptance produces a Git commit; after each stage, the roadmap is revisited and subsequent stages may be dynamically added, removed, merged, split, or reordered. Changes are recorded in `roadmap-changelog.md`.
+* **Keep the goal appropriately abstract.** Users need only provide a clear goal and acceptance criteria; they do not need to design every implementation detail in advance.
 
-2. **Implementation**
-   Launch 1 sub-Agent to execute according to the implementation plan and complete the necessary self-tests.
+Both execution variants share the same stage loop but differ in level of effort:
 
-3. **Acceptance**
-   Launch 2–3 sub-Agents to review independently. They cross-check, supplement, and challenge one another’s findings. Finally, the orchestrator Agent synthesizes the results and determines whether the phase passes acceptance.
-
-4. **Commit**
-   If acceptance passes, create a git commit. If acceptance fails, send the work back to the implementation Agent for rework.
-
-This design differs from traditional SDD tools in several fundamental ways:
-
-* **Execution decisions no longer depend on human intervention.**
-  All trade-offs in plans, as well as disputes raised during the review phase, are evaluated and voted on by multiple sub-Agents, then arbitrated by the orchestrator Agent. They are no longer handed back to the user for a final decision.
-
-* **The plan evolves continuously.**
-  The roadmap is reviewed and revised after every phase is completed. All changes are recorded in `roadmap-changelog.md`.
-
-* **The goal can remain appropriately abstract.**
-  The user only needs to provide a relatively clear goal. They do not need to design all implementation details in advance before the task begins.
+| | `ultra-goal` | `ultra-goal-heavy` |
+| --- | --- | --- |
+| Planning | The Lead Agent creates the plan; ≥1 sub-agent reviews it | Two sub-agents each produce an independent plan; after cross-review, the Orchestrator adjudicates |
+| Implementation | The Lead Agent implements directly | Delegated to 1 sub-agent |
+| Acceptance | ≥1 sub-agent independently reviews | 2–3 sub-agents conduct independent reviews, followed by cross-review |
+| Must-fix severities | `blocker` | `blocker` and `high` |
 
 ## Suitable Use Cases
 
-**Running `ultra-goal` is not suitable for small tasks.**
+Starting an execution workflow consumes a large number of tokens for planning, review, and arbitration, so local changes such as “add a button” or “fix a typo” are not worth the overhead. Ultra-Goal is suitable for:
 
-Starting an Ultra-Goal workflow means spending a large number of tokens on planning, review, voting, and arbitration. For local changes such as “add a button” or “fix a typo,” this overhead is usually not worthwhile.
-
-Ultra-Goal is suitable for scenarios such as:
-
-* Large engineering tasks that need to continue for hours or even days, such as major refactors, migrations across technology stacks, or building a complete module from scratch;
-* Cases where the user cannot keep watching the screen and wants the task to keep progressing in unattended mode;
-* Cases where multiple projects need to move forward in parallel, and the user wants to reduce the ongoing cost of decision-making and supervision.
+* Large tasks lasting hours or even days: major refactors, cross-stack migrations, or building a complete module from scratch;
+* Situations where the user cannot monitor the task continuously and wants it to progress unattended;
+* Running multiple projects in parallel while reducing ongoing decision-making and supervision overhead.
 
 ## Model Selection
 
-* **The orchestrator model should be as capable as possible.**
-  It performs well with the `Codex + gpt-5.5 xhigh` combination. The orchestrator Agent is responsible for overall coordination. If the model is not capable enough, the entire workflow can easily go off the rails.
-
-* **Sub-Agents use the orchestrator model by default.**
-  If you are cost-sensitive, you can explicitly specify a smaller model for sub-Agents, such as `gpt-5.4`, or even `gpt-5.4 mini`.
+The lead agent should use the most capable model available (the `Codex + gpt-5.5 xhigh` combination performs well). If the model is not capable enough, the entire workflow can easily go off track. Sub-agents use the lead agent's model by default; if cost is a concern, explicitly specify a smaller model in the goal, such as `gpt-5.4 mini`.
 
 ## Usage Recommendations
 
-### 1. The goal should be clear, but should not contain too many implementation details
-
-An example of an appropriate goal:
-
-> “Migrate this Express project to Fastify while keeping the existing API behavior unchanged. All existing integration tests and E2E tests must continue to pass.”
-
-An overly vague goal should be clarified first:
-
-> “Change the project a bit.”
-
-However, the goal also does not need to be written as concrete implementation steps:
-
-> “Migrate Express to Fastify. First, modify `server.ts` and replace all `app.use` calls with …”
-
-Implementation details like these crowd out the exploration and planning space of the sub-Agents, and may instead reduce the final quality.
-
-### 2. Provide end-to-end acceptance methods whenever possible
-
-Relying only on unit tests is usually not enough. It is entirely possible for a sub-Agent to make all tests pass while the actual functionality can no longer run correctly.
-
-It is recommended to specify end-to-end acceptance methods in the goal, for example:
-
-* **Web applications**: have the acceptance Agents use `playwright-cli` to control a real browser, then perform interactive acceptance and visual acceptance on key user paths.
-* **CLI tools**: execute real commands, and verify stdout, exit codes, and generated files.
-* **Server-side APIs**: start the real service process, then use `curl` or an HTTP client to verify the behavior of key endpoints.
-
-### 3. Explicit invocation is required
-
-The user must invoke it explicitly. This is an intentional design choice: Ultra-Goal has a high runtime cost and is not suitable for automatic triggering.
+1. **The goal should be clear, but should not include implementation details.** A suitable goal would be: “Migrate this Express project to Fastify while keeping the existing API behavior unchanged. All existing integration tests and E2E tests must continue to pass.” An overly vague goal (“Make some changes to the project.”) should first be clarified with `prepare-ultra-goal`; writing it as concrete implementation steps (“First, modify `server.ts`...”) leaves sub-agents less room to explore and plan, and may reduce the quality of the result.
+2. **Provide end-to-end acceptance checks whenever possible.** Unit tests alone are usually not enough: a sub-agent could make the tests pass while the actual functionality remains unusable. For web applications, have an acceptance agent use `playwright-cli` to drive a real browser through critical paths; for CLI tools, run real commands and verify stdout, exit codes, and generated files; for server-side APIs, start a real service process and use `curl` to verify key endpoints.
+3. **Explicit invocation and a Git repository are required.** The three skills are not triggered automatically, by design: their runtime cost is high, so the user must initiate them explicitly. The execution workflows create one commit for each stage that passes acceptance, so they must run inside a Git repository.
