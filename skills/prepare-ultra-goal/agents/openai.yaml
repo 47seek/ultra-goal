@@ -1,7 +1,0 @@
-interface:
-  display_name: "Prepare Ultra Goal"
-  short_description: "Refine goals before Ultra-Goal execution"
-  default_prompt: "Use $prepare-ultra-goal to refine this goal before execution."
-
-policy:
-  allow_implicit_invocation: false

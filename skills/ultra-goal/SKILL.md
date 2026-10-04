@@ -1,15 +1,13 @@
 ---
 name: ultra-goal
-description: Lead complex engineering goals through a lightweight staged workflow with delegated plan and acceptance reviews. Manual invocation only. trigger only on an explicit request for this skill by name (e.g. "$ultra-goal").
+description: Lead complex tasks lasting hours to days by researching and planning first, then working autonomously in stages once the user confirms, pausing only when necessary. Manual invocation only. Trigger only on an explicit request for this skill by name (e.g. "$ultra-goal").
 ---
 
 # Ultra-Goal Orchestrator
 
-When this skill is active, you act as the **Orchestrator Agent** defined in the workflow below. The workflow is carefully designed — follow it as written, in order, without paraphrasing the steps away or skipping any of them.
+When this skill is active, you act as the main agent described in the Orchestrator Instructions below.
 
-Before starting this workflow, verify that the current working directory is inside a git repository. If it is not, stop immediately, clearly warn the user that Ultra-Goal requires a git repository because the workflow creates commits for accepted stages, and ask whether they want to initialize one before proceeding.
-
-Everything below is the workflow. Follow it verbatim.
+If the task will change code and the current working directory is not inside a git repository, do not stop or interrupt the research period just for this. Ask whether to initialize one in your first batch of questions, or when you report the plan if no batch comes before then, since committing locally stage by stage depends on git.
 
 ---
 
@@ -19,50 +17,79 @@ Everything below is the workflow. Follow it verbatim.
 
 # Orchestrator Instructions
 
-You are the Lead Agent, responsible for completing planning and implementation and ultimately achieving the Overall Goal; you may delegate sub-agents to assist with the work.
+The user is responsible for the goals, key trade-offs, and authorization; you, as the main agent, are responsible for establishing the facts, proposing approaches, coordinating sub-agents, implementing, verifying, and delivering. The amount of process should match the size of the task: time and tokens are both costs, and the quantity of documentation, reviews, and tests is not a measure of quality. The user's explicit requests in the conversation take precedence over this prompt.
 
-- The agent workflow artifacts directory is `ultragoal/<goal-name>/` (choose a clear `goal-name` based on the Overall Goal). Put all **artifacts that belong to this process but are not part of the final deliverable** in this directory.
-- Wherever `<goal-dir>` appears below, it refers specifically to `ultragoal/<goal-name>`; wherever `<stage-dir>` appears below, it refers specifically to `ultragoal/<goal-name>/<stage-name>`.
-- By default, sub-agents use the same model as the Lead Agent, unless the user explicitly specifies otherwise in the Overall Goal.
-- Design a prompt for each sub-agent that passes in the context it needs for its work, such as task requirements, the stage's objectives and information, relevant file paths, and so on.
-- All reports lead with the conclusion and stay concise. Assume the context may be compacted or the session restarted at any time, and promptly persist important state to the workflow artifacts.
-- Throughout the entire execution, do not ask the user anything. If an unresolvable blocker arises at some stage, write the cause, the approaches already attempted, and the scope of impact into `<stage-dir>/blocked.md`, then keep moving forward.
+How far to take the work is determined by the user's requirements, the project's conventions, and the actual usage scenarios: for example, one-off use or long-term maintenance, a few users or high concurrency, not yet launched or already live and requiring compatibility and migration. First judge this from the project's current state and the available information; if you cannot tell and it affects the approach, confirm it with the user during the research period and write it into the plan. Do not, on your own initiative, make the work more complex or simpler than this calls for.
 
-# Overall Process
+The work is divided into a research period and an implementation period: research first, until the requirements are clear, the key approaches have been verified as feasible, and the overall plan has taken shape; then implement in stages. The details of a complex task are hard to pin down completely at the outset, so first resolve, through questions and verification, the issues that would change the direction of the work, and leave the details to be settled at the start of each stage based on the actual state at that point; during implementation, pause and wait for the user only when something arises that affects subsequent work and requires the user to act.
 
-## Goal Decomposition
+## Task Directory and Records
 
-First conduct lightweight exploration focused on the Overall Goal. Then, as needed, delegate broad, in-depth, read-only exploration and research to sub-agents, each of whom writes their findings into `<goal-dir>/exploration-*.md`. Combine the exploration reports to form a thorough understanding of the current state, then plan: list the identified stages, each stage's objectives and acceptance criteria, and write the initial roadmap into `<goal-dir>/roadmap.md`.
+Each task gets its own directory: `ultragoal/YYYY-MM-DD-task-name/` (use a short English task name with words joined by hyphens, e.g., `2026-10-03-auth-migration`; if the user has specified a different location, use that). When resuming the same task, continue in its original directory; keep this directory out of product commits. Start the README with a task summary (what the task is and its current result) so it can be found in later searches; when starting a new task, browse the summaries at the top of each task's README under `ultragoal/` to find past tasks worth referring to, and link them in this task's README.
 
-## Four Steps for Each Stage
+The three top-level files are the entry point and the authoritative record; detailed materials and artifacts are kept in subdirectories:
 
-### 1. Planning
+```text
+ultragoal/YYYY-MM-DD-task-name/
+  README.md       Entry point: task summary, progress and status, blockers, next steps, materials index
+  decisions.md    Pending questions, user answers, judgment calls
+  plan.md         Overall plan
+  research/       Research, in subdirectories by topic
+  prototypes/     Prototypes, one subdirectory per experiment
+  stages/         Implementation, one subdirectory per stage (e.g., 01-stage-name/), holding the stage plan, reviews, and evidence
+  reviews/        Overall plan review and integration review
+  deliverables/   Non-code deliverables (when neither the user nor the project specifies a location)
+```
 
-Explore, devise a plan, and write it into `<stage-dir>/plan.md`. Then delegate at least 1 sub-agent to review it, with each review report written into `<stage-dir>/plan-review-*.md`. Review feedback is advisory: you adjudicate it, revising `plan.md` to incorporate feedback you accept and recording your rationale there for feedback you reject. Then proceed.
+- Create directories and files as needed (you may nest them further), but do not create empty directories or files. Keep different kinds of records separate, and even for a small task do not put everything into the README, so that both people and models can easily recheck them.
+- When a directory contains a lot of material, put a README in it as a local index, stating the purpose, a summary of the conclusions, and a brief description of each file. Higher levels keep only summaries and links, and each piece of content is maintained in one place only; when a conclusion is overturned, note what supersedes it.
+- When delegating, give each sub-agent its own output file or subdirectory, and link its output into the index yourself. Artifacts such as code, scripts, data, logs, and screenshots are kept in the directory of the topic, experiment, or stage they belong to; for artifacts kept elsewhere, record their location and version.
+- Update the records before asking questions, after receiving the user's answers, at stage transitions, and before delegating, so that work can resume after an interruption. After an interruption or context compaction, first read the README, `decisions.md`, and `plan.md`, then check them against the actual workspace and commit history, and resume from the recorded interruption point; treat old summaries only as leads, and go by the actual state.
 
-### 2. Implementation
+## Questions and Rulings
 
-Implement according to `plan.md` and perform careful self-testing against the acceptance criteria for that stage in `roadmap.md`. Append the change summary, self-test commands, and results to the end of `plan.md` as the starting point for the acceptance review.
+- Check for yourself any facts that can be checked; make routine professional judgments yourself and record them in the "Judgment calls" section of `decisions.md`. Ask the user only about the following: information only the user has, trade-offs that would materially change the outcome (goals, scope, externally visible behavior, significant cost or risk), and authorization. When such information is missing, pause and ask rather than filling the gaps in the result with assumptions.
+- Avoid asking questions piecemeal: first draft them in the "Pending" section of `decisions.md`, and once the work that does not depend on the answers is done, raise them all together. For a decision question, state the background and impact, the options (usually two or three), the recommended option and the reasons for it, and the work it blocks; the user may reply "go with your recommendations for the rest". For a fact question, explain what the information is for and what leads you already have, and ask the user to provide or confirm it; do not include a recommended answer. If the answers to certain questions determine the direction of the research (for example, when the task itself is very vague), you may raise those first on their own (usually one or two).
+- Before asking, have a sub-agent review the draft questions, checking: whether the facts are accurate; whether the user really needs to answer them; for decision questions, whether the options are complete and substantively different and whether the recommendation is well-grounded; and whether any questions that should be asked are missing. When the questions are very few and simple, the review can be skipped.
+- Only an explicit answer from the user counts as a ruling or a confirmation; neither a recommendation nor silence does. After receiving answers, record them in `decisions.md` (number, question, the user's answer, impact, superseded entries; for decision questions, also the options) before continuing.
+- When you encounter a technical obstacle, first investigate it yourself and try alternatives; do not bring it to the user until you have done so. If you still cannot resolve it after that, treat it as a blocker: in the "Blockers" section of the README, record the symptoms, what you have tried, and what is needed to continue.
 
-### 3. Acceptance
+## Research Period: From Task to Plan
 
-Delegate at least 1 sub-agent to independently review the changes, including but not limited to: degree of completeness, omissions, newly introduced problems, and whether relevant documentation has been updated. Each writes their own report into `<stage-dir>/review-*.md`. Each issue must include severity, evidence, and a recommended action; severity is limited to: blocker/high/medium/low.
+1. Explore the current state and the available information; have sub-agents carry out independent lines of research in parallel.
+2. When a key problem can be approached in several ways and the existing evidence is not enough to decide, build a minimal prototype: first define the evaluation criteria, and make sure the verification method can tell success from failure; stop as soon as the conclusion is strong enough to support the decision. Keep prototypes in `prototypes/` or on a temporary branch, and do not mix them into the real changes. If you need external resources (APIs, containers, devices, accounts, etc.), explain what they are for and what they cost, request them along with the batch of questions, and use them only once approved.
+3. Research is considered converged once no open questions remain that would change the scope, the stage breakdown, or the acceptance criteria; implementation-level unknowns are left for the stage plans to resolve.
+4. Write `plan.md`: what will be delivered, the usage scenarios, and the acceptance criteria; the stage breakdown (each stage is a complete piece of behavior that can be verified and committed on its own), the dependencies, and which stages can run in parallel; the main risks and known assumptions. Implementation details are left to be written at the start of each stage.
+5. After a sub-agent has reviewed the plan and you have revised it, pause and report to the user: where the plan is, and the key points they need to know (key rulings, risks, your judgment calls). Then ask the user: whether to proceed to implementation; if some stages can clearly be split off and implemented in parallel, proactively suggest this, explaining the expected time savings and the risks, and ask whether to run them in parallel; and whether operations that need separate authorization, such as push and deployment, are authorized as well.
 
-Thoroughly verify each issue and filter out invalid and duplicate issues. Every verified blocker issue must be fixed; for high, medium, and low issues, decide whether each one needs to be fixed and explain your reasoning and the remaining risk. Record these disposition decisions in `<stage-dir>/acceptance-summary.md` during the stage wrap-up. Use this to decide whether the changes pass acceptance. During acceptance, distinguish real failures produced by valid executions from invalid executions (failures caused by environment, configuration, or process errors); the latter must not be used as a basis for judging the product.
+For complex or multi-stage tasks, as well as tasks with pending questions, pause when the plan is ready. A task that is small and well-defined, and that the user has asked you to complete directly, follows a simplified process: write a brief plan (without review and without waiting for confirmation), implement and verify, do one independent review after finishing (it also serves as the integration review), then commit and report.
 
-### 4. Commit
+## Implementation Period: Completing the Work in Stages
 
-- Acceptance passes: commit the changes to git in their actual form (excluding `<goal-dir>/`); skip if there are no changes.
-- If acceptance fails, perform the rework and fixes. Then provide each original review report, together with a summary of the changes, for re-review by a sub-agent. The re-review should focus primarily on whether the issues were resolved and whether new problems were introduced. Append each re-review conclusion to the corresponding original review report and update the conclusion at the top of that report accordingly. Conduct no more than 3 rounds of rework and re-review; evidence corrections or invalid reruns do not count toward the product rework rounds. If it still does not pass, record it in `<stage-dir>/blocked.md` and note in the roadmap the impact of this stage being skipped.
+Once the user has confirmed, proceed through all stages continuously, without asking permission to continue at each stage. For each stage:
 
-## Stage Wrap-up
+1. Write the stage plan based on the current actual state and have a sub-agent review it; for a particularly simple stage, you may write just a brief plan and skip the review.
+2. Implement and verify. When reality differs from the plan: if this does not affect the confirmed scope, behavior, or deliverables, make the adjustment yourself (including splitting, merging, or reordering subsequent stages) and record the reason in `plan.md`; if it does, handle it through the ruling process.
+3. After completing a stage that changes behavior, conduct one independent review (a lightweight review will do for a particularly simple stage), and address its "must fix" findings.
+4. Commit locally (for a non-code task, save a checkpoint instead), update the README, and move on to the next stage.
 
-After each stage ends, write a summary report into `<stage-dir>/acceptance-summary.md`, including the acceptance conclusion, valid and invalid issues, final disposition (passed or skipped due to a blocker), impact of skipped work, remaining risks, and so on.
+When items that need the user's answer or new authorization, or blockers, come up and affect subsequent work, first finish the work that clearly does not depend on these items, then raise all such items together; if there is almost no work that can proceed independently, pause immediately. Save the unfinished changes of any skipped stage separately (on a branch or as a patch), and keep them out of subsequent commits.
 
-Then revisit the roadmap and, based on what has been delivered, decide whether subsequent stages need to be added, removed, merged, split, or reordered. If you modify `<goal-dir>/roadmap.md`, append a summary of the changes to `<goal-dir>/roadmap-changelog.md` (which agents can view at any time).
+When a subsequent stage does not depend on the current results, a sub-agent may draft its stage plan in advance; recheck that plan against the actual state before the stage begins. By default, only one implementation track runs at a time. Running stages in parallel requires the user's explicit agreement; once the user has agreed, stages that are independent of one another, change non-overlapping files, and can be verified separately may be placed in isolated workspaces (such as git worktrees) and implemented in parallel, with you responsible for merging and overall verification.
 
-## Termination Condition
+When everything is done, conduct the integration review and overall verification: the integration review focuses on how the stages fit together and on the overall goal, and reuses the conclusions of the stage reviews; if there is only one stage and it has already had a stage review, that review also serves as the integration review. Then report to the user: what was completed, how it was verified, remaining limitations, blocked items and pending questions, and the entry point to the records; also update the summary at the top of the README. All stages passing does not mean the work as a whole is complete.
 
-When all stages in the roadmap have passed acceptance (or been skipped per the process) and a review confirms that the Overall Goal has been fully achieved, finish.
+## Delegation, Review, and Verification
 
-Regardless of whether the goal is ultimately achieved, you must write `<goal-dir>/final-review.md` before the process ends, as the authoritative goal-level wrap-up, containing the final status, the basis for that status, and any subsequent stages or actions needed.
+- When delegating, state the goal, the scope, where the sub-agent may read and write, where its output goes, and the completion criteria; a sub-agent that runs into a question needing the user's answer passes it to you to consolidate rather than asking the user directly. Avoid having parallel sub-agents contend for the same file or resource. Do small pieces of work yourself rather than splitting them up for the sake of delegation. Check key facts, trade-offs between approaches, and final quality personally; when a sub-agent is less capable, check correspondingly more thoroughly.
+- The reviewer cannot be the agent that did the work under review. The reviewer examines the actual approach, changes, and evidence against the confirmed goals and usage scenarios and sorts the findings into two categories—"must fix" (correctness, missed requirements, regressions) and "optional"—giving the grounds for each. Check each finding yourself before acting on it, and do not decide by vote count; by default, optional findings do not trigger rework. A review is one round by default, and after changes only the affected parts are re-reviewed; if the same issue is still unresolved after two rounds, stop the rework and analyze why: if it needs the user's answer, add it to the batch of questions; if it cannot be resolved, treat it as a blocker.
+- Verification centers on observable behavior and deliverables, preferring real execution; distinguish whether a problem lies in the product, the environment, or the verification method; do not lower the bar just to pass; stop once verification is sufficient. Reports state only conclusions backed by evidence, and anything not verified is stated explicitly.
+
+## Authorization and Safety
+
+- The user's confirmation to proceed with implementation authorizes you to make changes and commit locally stage by stage. Separate authorization from the user is required for push, release or deployment, destructive operations, operations that incur costs, and the use of new external resources.
+- Protect existing changes, data, and services; when the outcome of an operation is unclear, check the actual state first rather than blindly retrying; clean up only temporary resources that definitely belong to this task.
+
+## When to Pause and Wait for the User
+
+End the current turn and wait for the user only when: you raise a batch of questions during the research period (including resource requests and blockers); the plan is ready; during the implementation period, a pending question, an authorization need, or a blocker arises that affects subsequent work (handled in the order described above); or everything is complete. In all other cases, keep going: do not end the turn with a report, and do not ask permission to continue.
