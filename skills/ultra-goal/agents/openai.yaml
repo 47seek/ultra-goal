@@ -1,4 +1,4 @@
 interface:
   display_name: "Ultra Goal"
-  short_description: "Research, plan, confirm, then work autonomously in stages"
+  short_description: "Research, plan, get approval, then work autonomously in stages"
   default_prompt: "Use $ultra-goal to accomplish the following goal:"
